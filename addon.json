@@ -1,0 +1,142 @@
+{
+  "id": "addon.evidence-fixtures",
+  "name": "Evidence Fixtures",
+  "version": "0.1.0",
+  "author": "KyaniteLabs",
+  "category": "tool",
+  "sdkVersion": "0.1.0",
+  "description": "The evidence-contracts pattern, packaged as a ResonantOS add-on: a reference engine that runs the resonantos-economy-research community's own contribution-edge fixtures and proves their typed negatives hold with every effect field (reward, authority, policy, governance, payout) at none and implementation_status at fixture_only. Built by grafting kinocut's record-contract discipline (closed record schemas, unknown-fields-fail-on-read, hash-bound identity, typed negatives) onto the community's existing non-collapse defaults. Read-only: it parses fixture files and writes only its own var/receipt.json, which always banners 'fixture run receipt — not economy validation'. Runs standalone (python3 engine.py <fixtures-dir>) or through a hardened loopback local service.",
+  "runtimeType": "local-service",
+  "surfaces": [],
+  "requestedCapabilities": [
+    {
+      "capability": "filesystem",
+      "granted": false,
+      "scope": "workspace",
+      "revocationBehavior": "hard-stop"
+    }
+  ],
+  "provenance": {
+    "tier": "sideloaded-unverified",
+    "verificationState": "unverified",
+    "signed": false
+  },
+  "runtimeIsolation": {
+    "boundary": "host-mediated-service",
+    "supportsDegradedMode": true,
+    "requiresReviewedGrant": true
+  },
+  "grantPresets": [
+    {
+      "id": "evidence-fixtures-run",
+      "label": "Run contribution-edge fixtures",
+      "description": "Allow Evidence Fixtures to read the seven pinned files of a contribution-edge-fixtures directory (six fixture files plus TYPED-NEGATIVES.md) to run their pass/fail checks. Read-only: fixture files are never modified, and the only bytes written are this add-on's own var/receipt.json.",
+      "grants": [
+        {
+          "capability": "filesystem",
+          "granted": true,
+          "scope": "workspace",
+          "revocationBehavior": "hard-stop"
+        }
+      ]
+    }
+  ],
+  "providerRequirements": {
+    "sharedProfiles": [],
+    "supportsPrivateCredentials": true
+  },
+  "systemSlots": [],
+  "archiveIntegration": {
+    "readScopes": [],
+    "intakeWriteScopes": [],
+    "canRequestIngest": false,
+    "canWriteKnowledgePages": false
+  },
+  "health": {
+    "strategy": "http-json-status"
+  },
+  "service": {
+    "protocol": "http-json",
+    "entrypoint": "http://127.0.0.1:4896",
+    "healthCommand": "contractsgift.status"
+  },
+  "tools": [
+    {
+      "name": "contractsgift.status",
+      "description": "Report service health: ok flag, addon id, engine version, receipt schema, the receipt banner, and the last fixture run outcome. Takes no parameters.",
+      "requiredCapabilities": ["filesystem"],
+      "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "addon": { "type": "string", "const": "addon.evidence-fixtures" },
+          "tool": { "type": "string" },
+          "engine_version": { "type": "string" },
+          "receipt_schema": { "type": "string" },
+          "banner": { "type": "string", "description": "Always: fixture run receipt — not economy validation" },
+          "last_run": { "type": ["object", "null"], "description": "all_pass and fixture_set_hash of the most recent run, or null" },
+          "receipt_path": { "type": "string", "description": "Addon-relative path of the receipt file" }
+        },
+        "required": ["ok", "addon", "engine_version"]
+      },
+      "audit": { "logRequest": true, "logResult": true, "artifactTypes": ["log"] },
+      "requiresHumanApproval": false
+    },
+    {
+      "name": "contractsgift.run_fixtures",
+      "description": "Run the pinned contribution-edge fixture package from an absolute fixtures directory path: parses each fixture's embedded record strictly (unknown or missing fields fail loudly), asserts all five effect fields stay none and implementation_status stays fixture_only, verifies all seven typed negatives hold (the two meta-negatives hold by construction), and writes the deterministic receipt to var/receipt.json. Pass/fail only — the output cannot express reward, credit, payout, policy, governance, launch, economy validation, or implementation readiness. Fixture files are read-only and the directory must contain the seven pinned files.",
+      "requiredCapabilities": ["filesystem"],
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fixtures_dir": {
+            "type": "string",
+            "description": "Absolute path to the contribution-edge-fixtures directory (must contain the six fixture files and TYPED-NEGATIVES.md)",
+            "maxLength": 2048
+          }
+        },
+        "required": ["fixtures_dir"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "tool": { "type": "string" },
+          "schema": { "type": "string", "const": "evidence-fixtures-run/1" },
+          "banner": { "type": "string" },
+          "engine_version": { "type": "string" },
+          "fixture_set_hash": { "type": "string", "description": "sha256 over the full read set (all six fixture files and TYPED-NEGATIVES.md)" },
+          "fixtures_passed": { "type": "integer" },
+          "fixtures_total": { "type": "integer" },
+          "typed_negatives_held": { "type": "integer" },
+          "all_pass": { "type": "boolean" },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fixture_id": { "type": "string" },
+                "file": { "type": "string", "description": "Fixture file basename only; never an absolute path" },
+                "pass": { "type": "boolean" },
+                "reasons": { "type": "array", "items": { "type": "string" } }
+              },
+              "required": ["fixture_id", "file", "pass", "reasons"]
+            }
+          },
+          "receipt_path": { "type": "string" }
+        },
+        "required": ["schema", "banner", "engine_version", "fixture_set_hash", "fixtures_passed", "fixtures_total", "typed_negatives_held", "all_pass", "results", "receipt_path"]
+      },
+      "audit": { "logRequest": true, "logResult": true, "artifactTypes": ["diagnostic-report", "log"] },
+      "requiresHumanApproval": false
+    }
+  ],
+  "installHooks": {
+    "onInstall": "start-evidence-fixtures-service"
+  },
+  "compatibility": {
+    "shellVersion": "^0.1.0",
+    "platforms": ["macOS", "linux", "windows"]
+  }
+}
